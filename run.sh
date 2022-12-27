@@ -83,7 +83,8 @@ function install() {
     
             mkdir -p $OUTPUT_DIR/letsencrypt
             docker pull certbot/certbot
-            docker run -it --rm --name certbot -p 80:80 -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
+            writeDockerfile
+            docker run -it --rm --name certbot -p 80:80 -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/dns-gandi \
                 certonly --standalone --noninteractive  --agree-tos --preferred-challenges http \
                 --email $EMAIL -d $DOMAIN --logs-dir /etc/letsencrypt/logs
         fi
@@ -103,6 +104,13 @@ function install() {
         --env-file $ENV_DIR/uid.env bitwarden/setup:$COREVERSION \
         dotnet Setup.dll -install 1 -domain $DOMAIN -letsencrypt $LETS_ENCRYPT -os $OS \
         -corev $COREVERSION -webv $WEBVERSION -dbname "$DATABASE" -keyconnectorv $KEYCONNECTORVERSION
+}
+
+function writeDockerfile() {
+    cat > Dockerfile <<- EOF
+    FROM certbot/certbot
+    RUN pip install certbot-plugin-gandi
+EOF
 }
 
 function dockerComposeUp() {
@@ -168,8 +176,10 @@ function updateLetsEncrypt() {
     if [ -d "${OUTPUT_DIR}/letsencrypt/live" ]
     then
         docker pull certbot/certbot
+        writeDockerfile
+        docker build -t certbot/dns-gandi .
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
-            -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
+            -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/dns-gandi \
             renew --logs-dir /etc/letsencrypt/logs
     fi
 }
@@ -178,8 +188,10 @@ function forceUpdateLetsEncrypt() {
     if [ -d "${OUTPUT_DIR}/letsencrypt/live" ]
     then
         docker pull certbot/certbot
+        writeDockerfile
+        docker build -t certbot/dns-gandi .
         docker run -i --rm --name certbot -p 443:443 -p 80:80 \
-            -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/certbot \
+            -v $OUTPUT_DIR/letsencrypt:/etc/letsencrypt/ certbot/dns-gandi \
             renew --logs-dir /etc/letsencrypt/logs --force-renew
     fi
 }
